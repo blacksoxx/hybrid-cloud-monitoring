@@ -1,3 +1,63 @@
+# VPC
+resource "aws_vpc" "main" {
+  cidr_block           = var.vpc_cidr
+  enable_dns_hostnames = true
+  enable_dns_support   = true
+
+  tags = {
+    Name        = "${var.prefix}-vpc"
+    Project     = var.project_name
+    Environment = var.environment
+  }
+}
+
+# Internet Gateway
+resource "aws_internet_gateway" "main" {
+  vpc_id = aws_vpc.main.id
+
+  tags = {
+    Name        = "${var.prefix}-igw"
+    Project     = var.project_name
+    Environment = var.environment
+  }
+}
+
+# Public Subnet
+resource "aws_subnet" "public" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = var.public_subnet_cidr
+  availability_zone       = "${var.region}a"
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name        = "${var.prefix}-public-subnet"
+    Project     = var.project_name
+    Environment = var.environment
+  }
+}
+
+# Route Table
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.main.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.main.id
+  }
+
+  tags = {
+    Name        = "${var.prefix}-public-rt"
+    Project     = var.project_name
+    Environment = var.environment
+  }
+}
+
+# Route Table Association
+resource "aws_route_table_association" "public" {
+  subnet_id      = aws_subnet.public.id
+  route_table_id = aws_route_table.public.id
+}
+
 # Data source for AMI
 data "aws_ami" "ubuntu" {
   most_recent = true
@@ -104,13 +164,4 @@ resource "aws_iam_role" "cloudwatch_role" {
       }
     ]
   })
-}
-
-# Outputs
-output "ec2_public_ip" {
-  value = aws_instance.monitoring_server.public_ip
-}
-
-output "s3_bucket_name" {
-  value = aws_s3_bucket.data_bucket.bucket
 }
